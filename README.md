@@ -7,11 +7,14 @@ This is a tiny web app for “beat battles” and remix exchanges where one pers
 
 ### Modes
 **Sample Mode:**
+<br>
 This mode has everyone in a lobby to download and remix a sample that the host uploads.
 
 **Collab Mode:**
+<br>
 This mode has everyone to pair up with someone else (or cyclically for odd groups) to remix each other's music.
 
 **Telephone Mode:**
+<br>
 This mode has everyone become ordered followed by the first person uploading a song, and then having the next person remix
 the previous person's song similar to the "telephone" game.
