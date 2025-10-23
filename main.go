@@ -104,8 +104,21 @@ func (s *Server) setupRoutes() {
 		http.FileServer(...) returns an http.Handler that knows how to serve files.
 
 		http.FileServer(http.FS(staticFiles)) creates an HTTP handler that serves files from the embedded FS.
+
 		http.FS() converts Go’s generic fs.FS (implemented by embed.FS) into the http.FileSystem interface
-		that FileServer expects.
+		that FileServer expects; This helps wrap it so that HTTP functions can read files from it
+
+		fs.Sub helps create a sub-view of that filesystem that starts inside web/static, since we don't want
+		to keep looking up web/static/css/main.css, we just want css/main.css when the browser asks
+		for /static/css/main.css; Returns an fs.FS, which is still a virtual file system view
+
+		Handlers in summary will read files from a filesystem and write them to a web response when requested.
+
+		If "css/main.css" was requested, then the "fs := ..." line will:
+		1. open that file from the virtual filesystem,
+		2. read its contents, and
+		3. write the bytes to the browser as the HTTP response
+
 
 	*/
 	staticFiles, err := fs.Sub(staticFS, "web/static")
@@ -113,7 +126,19 @@ func (s *Server) setupRoutes() {
 		log.Fatal("Failed to create static sub-filesystem:", err)
 	}
 
+	// fs becomes an http.Handler that serves the embedded /web/static/... files from inside the binary
 	fs := http.FileServer(http.FS(staticFiles))
+
+	// StripPrefix also matches HTTP request to specific file in the fs variable; URL prior is already stored in r.URL.Path
+
+	/*
+		fs = the mailroom worker who can find boxes labeled like "css/main.css".
+
+		stripped = a front desk clerk who checks if your package label starts with "static/", and
+		if so, removes that word before handing it to the mailroom.
+	*/
 	stripped := http.StripPrefix("/static/", fs)
+
+	// We check if the URL prefix contains "/static/" and if it does, we call the "stripped" handler, so we go back up
 	s.router.PathPrefix("/static/").Handler(stripped)
 }
