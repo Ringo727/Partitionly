@@ -142,7 +142,7 @@ func (s *Server) setupRoutes() {
 	// We check if the URL prefix contains "/static/" and if it does, we call the "stripped" handler, so we go back up
 	s.router.PathPrefix("/static/").Handler(stripped)
 
-	// Page routes
+	// Page routes registration
 	s.router.HandleFunc("/", s.handleIndex).Methods("GET")
 	s.router.HandleFunc("/host", s.handleHostDashboard).Methods("GET")
 	s.router.HandleFunc("/round/{code}", s.handleRoundView).Methods("GET")
@@ -165,4 +165,15 @@ func (s *Server) handleHostDashboard(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleRoundView(w http.ResponseWriter, r *http.Request) {
 	// Todo: implement function, get round by code, check participant session
+}
+
+func initDB() (*sql.DB, error) {
+	db, err := sql.Open("sqlite3", "data/beatbattle.db")
+	if err != nil {
+		return nil, err
+	}
+
+	// Todo: implement DB tables
+
+	return db, nil
 }
