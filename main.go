@@ -141,4 +141,28 @@ func (s *Server) setupRoutes() {
 
 	// We check if the URL prefix contains "/static/" and if it does, we call the "stripped" handler, so we go back up
 	s.router.PathPrefix("/static/").Handler(stripped)
+
+	// Page routes
+	s.router.HandleFunc("/", s.handleIndex).Methods("GET")
+	s.router.HandleFunc("/host", s.handleHostDashboard).Methods("GET")
+	s.router.HandleFunc("/round/{code}", s.handleRoundView).Methods("GET")
+}
+
+func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
+	if err := s.templates.ExecuteTemplate(w, "index.html", nil); err != nil {
+		http.Error(w, "Failed to render template", http.StatusInternalServerError)
+		log.Printf("Template error: %v", err)
+	}
+}
+
+func (s *Server) handleHostDashboard(w http.ResponseWriter, r *http.Request) {
+	// Todo: check session and verify host
+	if err := s.templates.ExecuteTemplate(w, "host.html", nil); err != nil {
+		http.Error(w, "Failed to render template", http.StatusInternalServerError)
+		log.Printf("Template error: %v", err)
+	}
+}
+
+func (s *Server) handleRoundView(w http.ResponseWriter, r *http.Request) {
+	// Todo: implement function, get round by code, check participant session
 }
