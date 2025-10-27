@@ -1,7 +1,7 @@
 package main
 
 import (
-	"database/sql"  // For db interface for SQL dbs
+	// "database/sql"  // For db interface for SQL dbs
 	"embed"         // Allows embedding files into binary at compile time
 	"html/template" // HTML templating engine for rendering dynamic web pages
 	"io/fs"         // Gives FS utilities; fs.Sub() lets us serve from the "web/static" subdirectory
@@ -9,8 +9,20 @@ import (
 	"net/http"      // For HTTP server and client funcionality
 	"os"            // For OS interface
 
-	"github.com/gorilla/mux"        // Router for advanced URL Routing
-	_ "github.com/mattn/go-sqlite3" //SQLite Driver (underscore means we only need its init used with database/sql)
+	"context"
+	"crypto/rand"
+	"encoding/json"
+	"fmt"
+	"io"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/gorilla/mux" // Router for advanced URL Routing
+	// _ "github.com/mattn/go-sqlite3" //SQLite Driver (underscore means we only need its init used with database/sql)
+
+	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 )
 
 /*
@@ -26,6 +38,64 @@ var templatesFS embed.FS // FS stands for file-system
 
 //go:embed web/static/*
 var staticFS embed.FS
+
+// This context type variable can carry things like cancellation signals,
+// deadlines, and values across API boundaries and goroutines.
+var ctx = context.Background()
+
+type RoundMode string
+
+const (
+	ModeSample       RoundMode = "sample"
+	ModeCollabRandom RoundMode = "collab-random"
+	ModeCollabCyclic RoundMode = "collab-cyclic"
+	ModeCollabPair   RoundMode = "collab-pair"
+	ModeTelephone    RoundMode = "telephone"
+)
+
+type RoundState string
+
+const (
+	StateWaiting RoundState = "waiting"
+	StateActive  RoundState = "active"
+	StateClosed  RoundState = "closed"
+)
+
+type Participant struct {
+	ID          string    `json:"id"`
+	DisplayName string    `json:"displayName"`
+	IsHost      bool      `json:"isHost"`
+	JoinedAt    time.Time `json:"joinedAt"`
+}
+
+type Submission struct {
+	ParticipantID string    `json:"participantId"`
+	Filename      string    `json:"filename"`
+	OriginalName  string    `json:"originalName"`
+	UploadedAt    time.Time `json:"uploadedAt"`
+	AssignedToID  string    `json:"assignedToId,omitempty"`
+}
+
+type Round struct {
+	ID                 string                  `json:"id"`
+	Name               string                  `json:"name"`
+	Mode               RoundMode               `json:"mode"`
+	JoinCode           string                  `json:"joinCode"`
+	State              RoundState              `json:"state"`
+	HostID             string                  `json:"hostId"`
+	Participants       map[string]*Participant `json:"participants"`
+	Submissions        map[string]*Submission  `json:"submissions"`
+	AllowGuestDownload bool                    `json:"allowGuestDownload"`
+	CreatedAt          time.Time               `json:"createdAt"`
+	SampleFileID       string                  `json:"sampleFileId,omitempty"` // Particularly for sample mode
+}
+
+type Session struct {
+	Token         string    `json:"token"`
+	ParticipantID string    `json:"participantId"`
+	RoundCode     string    `json:"roundCode"`
+	CreatedAt     time.Time `json:"createdAt"`
+}
 
 type Server struct {
 	db        *sql.DB            // Pointer to database connection
