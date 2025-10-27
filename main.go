@@ -221,19 +221,35 @@ func (s *Server) handleRoundView(w http.ResponseWriter, r *http.Request) {
 
 // Api Handler Functions
 func (s *Server) handleCreateRound(w http.ResponseWriter, r *http.Request) {
-
+	// Todo: Need to fully implement still
+	w.Header().Set("Content-Type", "application/json")
+	if _, err := w.Write([]byte(`{"status":"not implemented"}`)); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func (s *Server) handleJoinRound(w http.ResponseWriter, r *http.Request) {
-
+	// Todo: Need to fully implement still
+	w.Header().Set("Content-Type", "application/json")
+	if _, err := w.Write([]byte(`{"status":"not implemented"}`)); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func (s *Server) handleUpdateState(w http.ResponseWriter, r *http.Request) {
-
+	// Todo: Need to fully implement still
+	w.Header().Set("Content-Type", "application/json")
+	if _, err := w.Write([]byte(`{"status":"not implemented"}`)); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
-
+	// Todo: Need to fully implement still
+	w.Header().Set("Content-Type", "application/json")
+	if _, err := w.Write([]byte(`{"status":"not implemented"}`)); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func initDB() (*sql.DB, error) {
