@@ -149,6 +149,15 @@ func (s *Server) setupRoutes() {
 	// Want to note that {code} is like a reverse template where the URL fulfills that variable, but in the handler
 	// function we will extract that {code} variable with mux.Vars(r)
 	s.router.HandleFunc("/round/{code}", s.handleRoundView).Methods("GET")
+
+	// Api route registration
+
+	// as per it says in the method, this is a subrouter of our 's' Server; All full paths would include /api if not
+	api := s.router.PathPrefix("/api").Subrouter()
+	api.HandleFunc("/round/create", s.handleCreateRound).Methods("POST")
+	api.HandleFunc("/round/join", s.handleJoinRound).Methods("POST")
+	api.HandleFunc("/round/{id}/state", s.handleUpdateState).Methods("POST")
+	api.HandleFunc("/round/update", s.handleUpdate).Methods("POST")
 }
 
 /*
@@ -208,6 +217,23 @@ func (s *Server) handleRoundView(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to render template", http.StatusInternalServerError)
 		log.Printf("Template error: %v", err)
 	}
+}
+
+// Api Handler Functions
+func (s *Server) handleCreateRound(w http.ResponseWriter, r *http.Request) {
+
+}
+
+func (s *Server) handleJoinRound(w http.ResponseWriter, r *http.Request) {
+
+}
+
+func (s *Server) handleUpdateState(w http.ResponseWriter, r *http.Request) {
+
+}
+
+func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
+
 }
 
 func initDB() (*sql.DB, error) {
