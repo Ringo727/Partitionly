@@ -145,10 +145,40 @@ func (s *Server) setupRoutes() {
 	// Page routes registration
 	s.router.HandleFunc("/", s.handleIndex).Methods("GET")
 	s.router.HandleFunc("/host", s.handleHostDashboard).Methods("GET")
+
+	// Want to note that {code} is like a reverse template where the URL fulfills that variable, but in the handler
+	// function we will extract that {code} variable with mux.Vars(r)
 	s.router.HandleFunc("/round/{code}", s.handleRoundView).Methods("GET")
 }
 
+/*
+	Some notes:
+	http.ResponseWriter will be the pipe back to the user's browser where that variable is used to write the response.
+	This response could be anything like HTML, JSON, or any data that you decide to send to it.
+	This allows us to do things like:
+	w.Write([]byte("Hello!"))           // Send text
+	w.WriteHeader(404)                   // Set status code
+	w.Header().Set("Content-Type", "application/json")  // Set headers
+
+	http.Request is going to be the variable that contains all the information about the incoming request.
+	This could be URLs, headers, cookies, form data, etc.
+	It allows us to do things like:
+
+	r.URL.Path           // "/about"
+	r.Method            // "GET" or "POST"
+	r.Header.Get("Authorization")  // Get a header
+	r.FormValue("username")        // Get form data
+*/
+
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
+	/*
+		So here, we take the template named index.html. index.html or any template for that matter may contain
+		some variables that are not hardcoded, and so that's where we would write something to fill variables in
+		the index.html or whatever file. We'd usually put it where the nil is in the ExecuteTemplate()
+		function parameter. We don't need any dynamic variables at the moment, so that's why we have nil
+		for some of the ExecuteTemplate() functions.
+	*/
+
 	if err := s.templates.ExecuteTemplate(w, "index.html", nil); err != nil {
 		http.Error(w, "Failed to render template", http.StatusInternalServerError)
 		log.Printf("Template error: %v", err)
@@ -164,7 +194,20 @@ func (s *Server) handleHostDashboard(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleRoundView(w http.ResponseWriter, r *http.Request) {
-	// Todo: implement function, get round by code, check participant session
+	// Todo: implement function, get round by code, check participant session, DB checks and whatnot
+
+	vars := mux.Vars(r) // mux is the router library, but by stablishing
+	code := vars["code"]
+
+	data := map[string]interface{}{
+		"Code": code,
+		// Design choice is a map because I'll probably add more round data to it later to keep track of lobby data
+	}
+
+	if err := s.templates.ExecuteTemplate(w, "round.html", data); err != nil {
+		http.Error(w, "Failed to render template", http.StatusInternalServerError)
+		log.Printf("Template error: %v", err)
+	}
 }
 
 func initDB() (*sql.DB, error) {
