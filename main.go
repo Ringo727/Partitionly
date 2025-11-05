@@ -296,9 +296,34 @@ func (s *Server) handleRoundView(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r) // mux is the router library, but by stablishing
 	code := vars["code"]
 
+	cmd1 := s.db.Get(ctx, roundKey(code))
+	// separated cmd from result to demo the cmd batching ability (like being able to ask questions and getting multiple answers at once)
+	roundData, err := cmd1.Result()
+	if err == redis.Nil {
+		http.Error(w, "Round not found", http.StatusNotFound)
+		return
+	} else if err != nil {
+		http.Error(w, "Failed to get round", http.StatusInternalServerError)
+		return
+	}
+
+	var round Round
+	if err := json.Unmarshal([]byte(roundData), &round); err != nil {
+		http.Error(w, "Failed to parse round data", http.StatusInternalServerError)
+		return
+	}
+
+	// Check session
+	session := s.getSession(r)
+	var participant *Participant
+	if session != nil && round.Participants != nil {
+		participant = round.Participants[session.ParticipantID]
+	}
+
 	data := map[string]interface{}{
-		"Code": code,
-		// Design choice is a map because I'll probably add more round data to it later to keep track of lobby data
+		"Code":        code,
+		"Round":       round,
+		"Participant": participant,
 	}
 
 	if err := s.templates.ExecuteTemplate(w, "round.html", data); err != nil {
@@ -396,4 +421,23 @@ func initRDB() *redis.Client {
 	log.Println("Connected to Redis successfully")
 
 	return rdb
+}
+
+func (s *Server) getSession(r *http.Request) *Session {
+	cookie, err := r.Cookie("session")
+	if err != nil {
+		return nil
+	}
+
+	sessionData, err := s.db.Get(ctx, sessionKey(cookie.Value)).Result()
+	if err != nil {
+		return nil
+	}
+
+	var session Session
+	if err := json.Unmarshal([]byte(sessionData), &session); err != nil {
+		return nil
+	}
+
+	return &session
 }
