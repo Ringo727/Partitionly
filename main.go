@@ -1,7 +1,6 @@
 package main
 
 import (
-	// "database/sql"  // For db interface for SQL dbs
 	"embed"         // Allows embedding files into binary at compile time
 	"html/template" // HTML templating engine for rendering dynamic web pages
 	"io/fs"         // Gives FS utilities; fs.Sub() lets us serve from the "web/static" subdirectory
@@ -19,7 +18,6 @@ import (
 	"time"
 
 	"github.com/gorilla/mux" // Router for advanced URL Routing
-	// _ "github.com/mattn/go-sqlite3" //SQLite Driver (underscore means we only need its init used with database/sql)
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
@@ -98,7 +96,7 @@ type Session struct {
 }
 
 type Server struct {
-	db        *sql.DB            // Pointer to database connection
+	db        *redis.Client      // Pointer to database connection
 	templates *template.Template // parsed HTML templates
 	router    *mux.Router        //HTTP router for handling different URLs
 }
@@ -118,23 +116,23 @@ func main() {
 		0755 means that owner has RWX (read, write, and exectute), group has RX, and others have RX
 	*/
 
-	if err := os.MkdirAll("data/uploads", 0755); err != nil {
+	if err := os.MkdirAll("temp/uploads", 0755); err != nil {
 		log.Fatal("Failed to create data directories:", err)
 	}
 
-	db, err := initDB()
-	if err != nil {
-		log.Fatal("Failed to initialize database:", err)
-	}
-	defer db.Close() // "defer" ensures db.close() runs when main() exits (cleanup)
+	rdb := initRDB()  // Initialize database
+	defer rdb.Close() // "defer" ensures db.close() runs when main() exits (cleanup)
 
 	// ParseFS reads from the embedded FS that we created earlier here; We parse all embeddded HTML templates into memory
 	templates, err := template.ParseFS(templatesFS, "web/templates/*.html")
+	if err != nil {
+		log.Fatal("Failed to parse from the embedded FS")
+	}
 
 	// Initializing new server (we ofc want a pointer because all those member vars are shared resources; Not
 	// good to be copying large structs around either and also wouldn't make sense to)
 	server := &Server{
-		db:        db,
+		db:        rdb,
 		templates: templates,
 		router:    mux.NewRouter(),
 	}
@@ -142,8 +140,13 @@ func main() {
 	// This uses the function below to register URL paths and link them to their handler functions
 	server.setupRoutes()
 
-	log.Println("Server starting on http://localhost:8080")
-	if err := http.ListenAndServe(":8080", server.router); err != nil {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	log.Println("Server starting on http://localhost:%s", port)
+	if err := http.ListenAndServe(":"+port, server.router); err != nil {
 		log.Fatal("Server failed to start:", err)
 	}
 }
@@ -322,13 +325,28 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func initDB() (*sql.DB, error) {
-	db, err := sql.Open("sqlite3", "data/beatbattle.db")
-	if err != nil {
-		return nil, err
+func initRDB() *redis.Client {
+
+	redisAddr := os.Getenv("REDIS_URL")
+	if redisAddr == "" {
+		redisAddr = "localhost:6379"
 	}
 
-	// Todo: implement DB tables
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     redisAddr,
+		Password: os.Getenv("REDIS_PASSWORD"), // Default to "" if no password set
 
-	return db, nil
+		// We only use the first one '0' since we can put the whole lobby structure on there
+		DB:       0, // This DB parameter is a namespace;
+		Protocol: 3, // This parameter tells us how we want our formatting style (e.g. RESP2, RESP3 [protocol 3 = RESP3])
+	})
+
+	// Test Redis connection
+	if err := rdb.Ping(ctx).Err(); err != nil {
+		log.Fatal("Failed to connect to Redis:", err)
+	}
+
+	log.Println("Connected to Redis successfully")
+
+	return rdb
 }
