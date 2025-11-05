@@ -218,19 +218,34 @@ func (s *Server) setupRoutes() {
 	// Page routes registration
 	s.router.HandleFunc("/", s.handleIndex).Methods("GET")
 	s.router.HandleFunc("/host", s.handleHostDashboard).Methods("GET")
-
 	// Want to note that {code} is like a reverse template where the URL fulfills that variable, but in the handler
 	// function we will extract that {code} variable with mux.Vars(r)
 	s.router.HandleFunc("/round/{code}", s.handleRoundView).Methods("GET")
 
 	// Api route registration
-
 	// as per it says in the method, this is a subrouter of our 's' Server; All full paths would include /api if not
 	api := s.router.PathPrefix("/api").Subrouter()
 	api.HandleFunc("/round/create", s.handleCreateRound).Methods("POST")
 	api.HandleFunc("/round/join", s.handleJoinRound).Methods("POST")
-	api.HandleFunc("/round/{id}/state", s.handleUpdateState).Methods("POST")
-	api.HandleFunc("/round/update", s.handleUpdate).Methods("POST")
+	api.HandleFunc("/round/{code}/info", s.handleRoundInfo).Methods("GET")
+	api.HandleFunc("/round/{code}/state", s.handleUpdateState).Methods("POST")
+	api.HandleFunc("/round/{code}/upload", s.handleUpload).Methods("POST")
+	api.HandleFunc("/round/{code}/download/{filename}", s.handleDownload).Methods("GET")
+	api.HandleFunc("/round/{code}/export", s.handleExport).Methods("GET")
+}
+
+// Redis key helper functions
+func roundKey(code string) string {
+	// keeping this here for reference, but concatenation is faster; Sprintf() helps when mixing different types (%v, etc.)
+	return fmt.Sprintf("round:%s", code)
+}
+
+func sessionKey(token string) string {
+	return fmt.Sprintf("sesssion:%s", token)
+}
+
+func fileKey(roundID, filename string) string {
+	return fmt.Sprintf("file:%s:%s", roundID, filename)
 }
 
 /*
@@ -318,6 +333,38 @@ func (s *Server) handleUpdateState(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
+	// Todo: Need to fully implement still
+	w.Header().Set("Content-Type", "application/json")
+	if _, err := w.Write([]byte(`{"status":"not implemented"}`)); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func (s *Server) handleRoundInfo(w http.ResponseWriter, r *http.Request) {
+	// Todo: Need to fully implement still
+	w.Header().Set("Content-Type", "application/json")
+	if _, err := w.Write([]byte(`{"status":"not implemented"}`)); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
+	// Todo: Need to fully implement still
+	w.Header().Set("Content-Type", "application/json")
+	if _, err := w.Write([]byte(`{"status":"not implemented"}`)); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
+	// Todo: Need to fully implement still
+	w.Header().Set("Content-Type", "application/json")
+	if _, err := w.Write([]byte(`{"status":"not implemented"}`)); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 	// Todo: Need to fully implement still
 	w.Header().Set("Content-Type", "application/json")
 	if _, err := w.Write([]byte(`{"status":"not implemented"}`)); err != nil {
