@@ -267,6 +267,16 @@ func fileKey(roundID, filename string) string {
 	r.FormValue("username")        // Get form data
 */
 
+func generateJoinCode() string {
+	const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	b := make([]byte, 6)
+	rand.Read(b)
+	for i := range b {
+		b[i] = charset[b[i]%byte(len(charset))]
+	}
+	return string(b)
+}
+
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	/*
 		So here, we take the template named index.html. index.html or any template for that matter may contain
@@ -424,6 +434,7 @@ func initRDB() *redis.Client {
 }
 
 func (s *Server) getSession(r *http.Request) *Session {
+	// Because Cookies are stored in the User's browser, it's part of the *http.Request
 	cookie, err := r.Cookie("session")
 	if err != nil {
 		return nil
