@@ -435,6 +435,8 @@ func (s *Server) getSession(r *http.Request) *Session {
 	}
 
 	var session Session
+	// Decode from CDR (json), with raw byte data as first parameter and the pointer (needs to be a pointer), to
+	// the variable you want to transfer the data to as the second parameter.
 	if err := json.Unmarshal([]byte(sessionData), &session); err != nil {
 		return nil
 	}
