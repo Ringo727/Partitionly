@@ -269,8 +269,8 @@ func fileKey(roundID, filename string) string {
 
 func generateJoinCode() string {
 	const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	b := make([]byte, 6)
-	rand.Read(b)
+	b := make([]byte, 6) // byte in Go is literally exactly a uint8 (so some number from 0-[2^8 - 1]);
+	rand.Read(b)         // each element is a random byte from 0-255
 	for i := range b {
 		b[i] = charset[b[i]%byte(len(charset))]
 	}
@@ -301,13 +301,13 @@ func (s *Server) handleHostDashboard(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleRoundView(w http.ResponseWriter, r *http.Request) {
-	// Todo: implement function, get round by code, check participant session, DB checks and whatnot
-
-	vars := mux.Vars(r) // mux is the router library, but by stablishing
+	vars := mux.Vars(r) // mux is the router library; Vars only has path variables in the {} from above.
+	// the code carried in the variables of mux.Vars is limited to just this route (whatever code was called with the GET request)
 	code := vars["code"]
 
 	cmd1 := s.db.Get(ctx, roundKey(code))
 	// separated cmd from result to demo the cmd batching ability (like being able to ask questions and getting multiple answers at once)
+	// Very useful when Pipelining commands [can look into that later]
 	roundData, err := cmd1.Result()
 	if err == redis.Nil {
 		http.Error(w, "Round not found", http.StatusNotFound)
@@ -344,11 +344,92 @@ func (s *Server) handleRoundView(w http.ResponseWriter, r *http.Request) {
 
 // Api Handler Functions
 func (s *Server) handleCreateRound(w http.ResponseWriter, r *http.Request) {
-	// Todo: Need to fully implement still
-	w.Header().Set("Content-Type", "application/json")
-	if _, err := w.Write([]byte(`{"status":"not implemented"}`)); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	// Anonymous/lambda struct
+	var req struct {
+		Name               string    `json:"name"`
+		Mode               RoundMode `json:"mode"`
+		HostName           string    `json:"hostName"`
+		AllowGuestDownload bool      `json:"allowGuestDownload"`
 	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	var joinCode string
+	for {
+		joinCode = generateJoinCode()
+		exists, _ := s.db.Exists(ctx, roundKey(joinCode)).Result() // another command and result
+		if exists == 0 {
+			break
+		}
+	}
+
+	hostID := uuid.New().String() // just a fun sidenote, UUIDs are like a standard of ID generation (defined by RFC)
+	host := &Participant{         // sidenote: This is Go's distinctive type of initialization features.
+		ID:          hostID,
+		DisplayName: req.HostName,
+		IsHost:      true,
+		JoinedAt:    time.Now(),
+	}
+
+	// Creating the actual round
+	round := &Round{
+		ID:                 uuid.New().String(),
+		Name:               req.Name,
+		Mode:               req.Mode,
+		JoinCode:           joinCode,
+		State:              StateWaiting,
+		HostID:             hostID,
+		Participants:       map[string]*Participant{hostID: host},
+		Submissions:        make(map[string]*Submission),
+		AllowGuestDownload: req.AllowGuestDownload,
+		CreatedAt:          time.Now(),
+	}
+
+	// Storing the round in Redis with a 24-hour expiration timer
+	roundData, _ := json.Marshal(round) // Gives back that json byte encoded representation
+	if err := s.db.Set(ctx, roundKey(joinCode), roundData, 24*time.Hour).Err(); err != nil {
+		http.Error(w, "Failed to create round", http.StatusInternalServerError)
+		return
+	}
+
+	// Create session
+	sessionToken := uuid.New().String()
+	session := &Session{
+		Token:         sessionToken,
+		ParticipantID: hostID,
+		RoundCode:     joinCode,
+		CreatedAt:     time.Now(),
+	}
+
+	sessionData, _ := json.Marshal(session)
+	if err := s.db.Set(ctx, sessionKey(sessionToken), sessionData, 24*time.Hour).Err(); err != nil {
+		log.Printf("Failed to create session: %v", err)
+	}
+
+	// Create upload directory for this round
+	os.MkdirAll(filepath.Join("temp/uploads", round.ID), 0755)
+
+	// Setting session cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session",
+		Value:    sessionToken,
+		Path:     "/",
+		MaxAge:   86400,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	// Return Response
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":  true,
+		"code":     joinCode,
+		"roundId":  round.ID,
+		"hostName": req.HostName,
+	})
 }
 
 func (s *Server) handleJoinRound(w http.ResponseWriter, r *http.Request) {
