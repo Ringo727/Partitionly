@@ -433,11 +433,131 @@ func (s *Server) handleCreateRound(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleJoinRound(w http.ResponseWriter, r *http.Request) {
-	// Todo: Need to fully implement still
-	w.Header().Set("Content-Type", "application/json")
-	if _, err := w.Write([]byte(`{"status":"not implemented"}`)); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	// Parse the body of the request
+	var req struct { // Anonymous class for request
+		Code        string `json:"code"`
+		DisplayName string `json:"displayName"`
 	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid Request", http.StatusBadRequest)
+		return
+	}
+
+	// Validation of input and notification to client if failure
+	req.Code = strings.ToUpper(strings.TrimSpace(req.Code))
+	if req.Code == "" || req.DisplayName == "" {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "Code and display name are required",
+		})
+		return
+	}
+
+	// Getting round data from Redis
+	roundData, err := s.db.Get(ctx, roundKey(req.Code)).Result()
+	if err == redis.Nil {
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "Invalid join code",
+		})
+		return
+	} else if err != nil {
+		http.Error(w, "Failed to get round", http.StatusInternalServerError)
+		return
+	}
+
+	// Parsing round data from the binary blob that it was; Also roundData is a Go string, so we gotta convert it into that []byte format
+	var round Round
+	if err := json.Unmarshal([]byte(roundData), &round); err != nil {
+		http.Error(w, "Failed to parse round data", http.StatusInternalServerError)
+		return
+	}
+
+	// check if the round is still accepting participants
+	if round.State != StateWaiting {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "This round is no longer accepting particpants",
+		})
+		return
+	}
+
+	// Check if user already has a session for this round
+	existingSession := s.getSession(r)
+	var participantID string
+	if existingSession != nil && existingSession.RoundCode == req.Code {
+		// User is already in this round
+		participantID = existingSession.ParticipantID
+
+		// Update their display name if they changed it
+		// Just a heads up, "exists" here is a special Go map lookup syntax; when in this second form with the two return variables, the second
+		// variable which is the "exists" variable is a bool to check if it exists or not in the map. Very neat and cool syntax imo.
+		if participant, exists := round.Participants[participantID]; exists {
+			participant.DisplayName = req.DisplayName
+		}
+	} else {
+		// Create a new participant since the session doesn't exists and they don't exist for their own session or the round code is different
+		participantID = uuid.New().String()
+		participant := &Participant{
+			ID:          participantID,
+			DisplayName: req.DisplayName,
+			IsHost:      false,
+			JoinedAt:    time.Now(),
+		}
+
+		// Initialize map if nil (shouldn't happen but safety first)
+		if round.Participants == nil {
+			round.Participants = make(map[string]*Participant)
+		}
+
+		// Add the participant to the round
+		round.Participants[participantID] = participant
+	}
+
+	// Save updated round back to Redis
+	updatedRoundData, _ := json.Marshal(round)
+	if err := s.db.Set(ctx, roundKey(req.Code), updatedRoundData, 24*time.Hour).Err(); err != nil {
+		http.Error(w, "Failed to update round", http.StatusInternalServerError)
+		return
+	}
+
+	// Create or update session with new session data
+	sessionToken := uuid.New().String()
+	session := &Session{
+		Token:         sessionToken,
+		ParticipantID: participantID,
+		RoundCode:     req.Code,
+		CreatedAt:     time.Now(),
+	}
+
+	sessionData, _ := json.Marshal(session)
+	if err := s.db.Set(ctx, sessionKey(sessionToken), sessionData, 24*time.Hour).Err(); err != nil {
+		log.Printf("Failed to create session: %v", err)
+	}
+
+	// Set session cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session",
+		Value:    sessionToken,
+		Path:     "/",
+		MaxAge:   86400, // 24 hours in seconds (writing this again)
+		HttpOnly: true,  // Can't be accessed by JavaScript (security)
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	// Return success response
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":       true,
+		"code":          req.Code,
+		"roundId":       round.ID,
+		"participantId": participantID,
+		"displayName":   req.DisplayName,
+		"isHost":        false,
+	})
 }
 
 func (s *Server) handleUpdateState(w http.ResponseWriter, r *http.Request) {
@@ -515,6 +635,26 @@ func initRDB() *redis.Client {
 }
 
 func (s *Server) getSession(r *http.Request) *Session {
+	/* Note for cookies and whatnot:
+	- The cookies are created in my SetCookie method above.
+	- Cookies should ONLY contains the session token while other sensitive infor is in the DB (passwords, permissions, user data)
+	- We use cookies cause HTTP is statesless and every request is independent; Browsers don't remember users, Servers don't remember browsers, and
+	  every request could be literally anyone
+
+	If we DIDN'T use cookies then...
+		- user joining a round would not be remembered
+		- They would refresh and lose their identity
+		- I'd have to re-send their participant ID manually every request
+		- Guests could impersonate anyone
+
+	The cookies allow us to store the session token so I can look up their identity
+
+	The rest of the data is stored in Redis for all the reasons we listed above and whatnot. We only expose the session token because
+	that's the least that we need to track and whatnot. After, we can retrive the full data from Redis when we need, and of course you can see
+	that being done below in the unmarshalling line and whatnot.
+
+	*/
+
 	// Because Cookies are stored in the User's browser, it's part of the *http.Request
 	cookie, err := r.Cookie("session")
 	if err != nil {
