@@ -545,6 +545,10 @@ func (s *Server) handleJoinRound(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		MaxAge:   86400, // 24 hours in seconds (writing this again)
 		HttpOnly: true,  // Can't be accessed by JavaScript (security)
+
+		// This is to prevent CSRF (cross-site request forgery) attacks.
+		// Limits cookies to be delivered by links clicked on other websites and also by refreshing
+		// Usually there's also a "Secure:" flag too, but now there's not because it's usually when SameSite=None
 		SameSite: http.SameSiteLaxMode,
 	})
 
