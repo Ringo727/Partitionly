@@ -1,12 +1,15 @@
 package main
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"crypto/rand"
 	"embed" // Allows embedding files into binary at compile time
 	"encoding/json"
 	"fmt"
-	"html/template" // HTML templating engine for rendering dynamic web pages
+	"github.com/gorilla/mux" // Router for advanced URL Routing
+	"html/template"          // HTML templating engine for rendering dynamic web pages
 	"io"
 	"io/fs"    // Gives FS utilities; fs.Sub() lets us serve from the "web/static" subdirectory
 	"log"      // For Logging errors and info messages
@@ -16,8 +19,6 @@ import (
 	"sort"
 	"strings"
 	"time"
-
-	"github.com/gorilla/mux" // Router for advanced URL Routing
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
@@ -870,7 +871,7 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Add/Update submission in round (happens fo both modes)
+	// Add/Update submission in round (happens for both modes) to be saved to Redis next
 	round.Submissions[session.ParticipantID] = submission
 
 	// Save updated round to Redis
@@ -1125,11 +1126,147 @@ func (s *Server) handleUploadSample(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
-	// Todo: Need to fully implement still
-	w.Header().Set("Content-Type", "application/json")
-	if _, err := w.Write([]byte(`{"status":"not implemented"}`)); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	vars := mux.Vars(r)
+	code := vars["code"]
+	requestedFilename := vars["filename"] // From URL: /round/{code}/download/{filename}
+
+	// Get session
+	session := s.getSession(r)
+	if session == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
 	}
+
+	// Get round from Redis
+	roundData, err := s.db.Get(ctx, roundKey(code)).Result()
+	if err == redis.Nil {
+		http.Error(w, "Round not found", http.StatusNotFound)
+		return
+	} else if err != nil {
+		http.Error(w, "Failed to get round", http.StatusInternalServerError)
+		return
+	}
+
+	// Parse round data
+	var round Round
+	if err := json.Unmarshal([]byte(roundData), &round); err != nil {
+		http.Error(w, "Failed to parse round data", http.StatusInternalServerError)
+		return
+	}
+
+	// Check if user is a participant
+	participant, isParticipant := round.Participants[session.ParticipantID]
+	if !isParticipant {
+		// Check if guest downloads are allowed
+		if !round.AllowGuestDownload {
+			http.Error(w, "You must be a participant to download files", http.StatusForbidden)
+			return
+		}
+	}
+
+	// Determine which file the user should be able to download
+	var fileToServe string
+	var originalName string
+
+	switch round.Mode {
+	case ModeSample:
+		// In sample mode, participants download the sample (except the host who made it)
+		if requestedFilename == "sample" || requestedFilename == round.SampleFileID {
+			if round.SampleFileID == "" {
+				http.Error(w, "No sample uploaded yet", http.StatusNotFound)
+				return
+			}
+			fileToServe = round.SampleFileID
+			originalName = "sample.mp3" // Generic name for sample
+		} else {
+			// Downloading someone's remix; verify it exists
+			// Look for the submission whose stored filename matches the requested one
+			// We scan through all submissions and break as soon as we find the match
+			for _, submission := range round.Submissions {
+				if submission.Filename == requestedFilename {
+					fileToServe = submission.Filename
+					originalName = submission.OriginalName
+					break
+				}
+			}
+		}
+
+	case ModeTelephone:
+		// In telephone mode, find the file assigned to this participant
+		if requestedFilename == "assigned" {
+			// Find the file assigned to this participant
+			for _, submission := range round.Submissions {
+				if submission.AssignedToID == session.ParticipantID {
+					fileToServe = submission.Filename
+					originalName = submission.OriginalName
+					break
+				}
+			}
+
+			// Special case: First person gets the original sample if it exists
+			if fileToServe == "" && round.SampleFileID != "" {
+				// Check if this person is first in chain (after the starter)
+				participantIDs := make([]string, 0, len(round.Participants))
+				for id := range round.Participants {
+					participantIDs = append(participantIDs, id)
+				}
+				sort.Strings(participantIDs)
+
+				if len(participantIDs) > 1 && participantIDs[1] == session.ParticipantID {
+					fileToServe = round.SampleFileID
+					originalName = "starting_file.mp3"
+				}
+			}
+		} else {
+			// Direct file download by filename (for host/debugging)
+			for _, submission := range round.Submissions {
+				if submission.Filename == requestedFilename {
+					fileToServe = submission.Filename
+					originalName = submission.OriginalName
+					break
+				}
+			}
+		}
+	}
+
+	if fileToServe == "" {
+		http.Error(w, "File not found or not available for download", http.StatusNotFound)
+		return
+	}
+
+	// Build the file path
+	filePath := filepath.Join("temp/uploads", round.ID, fileToServe)
+
+	// Open the file
+	file, err := os.Open(filePath)
+	if err != nil {
+		log.Printf("Failed to open file %s: %v", filePath, err)
+		http.Error(w, "File not found on server", http.StatusNotFound)
+		return
+	}
+	defer file.Close() // for defer, files close after the function returns/finishes
+
+	fileInfo, err := file.Stat() // Getting file info for size
+	if err != nil {
+		http.Error(w, "Failed to get file info", http.StatusInternalServerError)
+		return
+	}
+
+	// Set headers for file download
+	w.Header().Set("Content-Type", "audio/mpeg") // Just a generic audio type
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", originalName))
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))
+
+	// Just a heads up (no pun intended), the headers need to be set before we write to the body with something like w.Write() [which io.Copy will do too]
+	// Stream the file to the response
+	written, err := io.Copy(w, file) // Copy from file to w (the response); no need to convert cause files are already in bytes; UTF-8 used for text (ofc, cause we gotta decipher later)
+	if err != nil {
+		log.Printf("Failed to send file: %v", err)
+		return
+	}
+
+	log.Printf("File downloaded: %s by %s (%d bytes)", fileToServe, participant.DisplayName, written)
+
 }
 
 func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
@@ -1187,7 +1324,7 @@ func (s *Server) getSession(r *http.Request) *Session {
 
 	*/
 
-	// Because Cookies are stored in the User's browser, it's part of the *http.Request
+	// Because Cookies are stored in the User's browser, it's part of the *http.Request; gets the "session" named cookie
 	cookie, err := r.Cookie("session")
 	if err != nil {
 		return nil
@@ -1199,8 +1336,10 @@ func (s *Server) getSession(r *http.Request) *Session {
 	}
 
 	var session Session
-	// Decode from CDR (json), with raw byte data as first parameter and the pointer (needs to be a pointer), to
+	// Decode from CDR (json) which is in UTF-8 (note: it's a Go string which is already in UTF-8, but we just need to copy it into a byte slice instead which
+	// is also UTF-8), with raw byte data as first parameter and the pointer (needs to be a pointer), to
 	// the variable you want to transfer the data to as the second parameter.
+	// Then now my data from Redis can be unmarshalled into my session struct
 	if err := json.Unmarshal([]byte(sessionData), &session); err != nil {
 		return nil
 	}
