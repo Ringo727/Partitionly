@@ -864,7 +864,7 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 				participant.DisplayName, round.Participants[submission.AssignedToID].DisplayName)
 		}
 
-		// First person's upload becomes the starting point
+		// First person's upload becomes the starting point sample we start with that goes through the telephone line
 		if currentPos == 0 {
 			round.SampleFileID = safeFilename
 			log.Printf("Telephone mode: Starting file set by %s", participant.DisplayName)
@@ -1270,11 +1270,154 @@ func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
-	// Todo: Need to fully implement still
-	w.Header().Set("Content-Type", "application/json")
-	if _, err := w.Write([]byte(`{"status":"not implemented"}`)); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	vars := mux.Vars(r)
+	code := vars["code"]
+
+	// Get session
+	session := s.getSession(r)
+	if session == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
 	}
+
+	// Get round from Redis
+	roundData, err := s.db.Get(ctx, roundKey(code)).Result()
+	if err == redis.Nil {
+		http.Error(w, "Round not found", http.StatusNotFound)
+		return
+	} else if err != nil {
+		http.Error(w, "Failed to get round", http.StatusInternalServerError)
+		return
+	}
+
+	// Parse round data
+	var round Round
+	if err := json.Unmarshal([]byte(roundData), &round); err != nil {
+		http.Error(w, "Failed to parse round data", http.StatusInternalServerError)
+		return
+	}
+
+	// Check if user is the host (only host can export all)
+	if session.ParticipantID != round.HostID {
+		http.Error(w, "Only the host can export all files", http.StatusForbidden)
+		return
+	}
+
+	// Check if there are any submissions to export; Can't export a submission if there are none lol
+	if len(round.Submissions) == 0 && round.SampleFileID == "" {
+		http.Error(w, "No files to export", http.StatusNotFound)
+		return
+	}
+
+	// Create a zip file in memory
+	// For production with large files, you'd want to stream this or use temp files
+	buf := new(bytes.Buffer) // bytes.Buffer is a growable in-memory byte array; It implements both io.Writer and io.Reader
+	zipWriter := zip.NewWriter(buf)
+
+	// Add sample file if it exists
+	if round.SampleFileID != "" {
+		filePath := filepath.Join("temp/uploads", round.ID, round.SampleFileID)
+		if err := addFileToZip(zipWriter, filePath, "00_sample_"+round.SampleFileID); err != nil {
+			log.Printf("Failed to add sample to zip: %v", err)
+		}
+	}
+
+	// Add all submissions and sort by participant name for consistent ordering
+	type submissionInfo struct {
+		ParticipantName string
+		Submission      *Submission
+	}
+
+	var sortedSubmissions []submissionInfo
+	for participantID, submission := range round.Submissions {
+		participant := round.Participants[participantID]
+		sortedSubmissions = append(sortedSubmissions, submissionInfo{
+			ParticipantName: participant.DisplayName,
+			Submission:      submission,
+		})
+	}
+
+	// Sort by participant name; Just some simple compare function for consistent ordering again
+	sort.Slice(sortedSubmissions, func(i, j int) bool {
+		return sortedSubmissions[i].ParticipantName < sortedSubmissions[j].ParticipantName
+	})
+
+	// Add each submission to the zip
+	for i, info := range sortedSubmissions {
+		filePath := filepath.Join("temp/uploads", round.ID, info.Submission.Filename)
+		// Naming files with number prefix for order and participant name for some clarity naming convention
+		zipFilename := fmt.Sprintf("%02d_%s_%s", i+1, info.ParticipantName, info.Submission.OriginalName)
+
+		if err := addFileToZip(zipWriter, filePath, zipFilename); err != nil {
+			log.Printf("Failed to add file to zip: %v", err)
+			// We'll still continue with other files even if one fails
+		}
+	}
+
+	// Closing the zip writer
+	if err := zipWriter.Close(); err != nil {
+		http.Error(w, "Failed to create zip file", http.StatusInternalServerError)
+		return
+	}
+
+	// Set headers for zip download
+	zipFilename := fmt.Sprintf("%s_%s_export.zip", round.Name, time.Now().Format("20060102_150405"))
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", zipFilename))
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", buf.Len()))
+
+	// Send the zip file
+	if _, err := w.Write(buf.Bytes()); err != nil {
+		log.Printf("Failed to send zip file: %v", err)
+		return
+	}
+
+	log.Printf("Exported %d files for round %s by host", len(round.Submissions)+1, code) // may be one off because of the sample file for the export count
+}
+
+// Helper function for adding a file to a zip
+func addFileToZip(zipWriter *zip.Writer, filePath string, zipPath string) error {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	// Get file info
+	info, err := file.Stat()
+	if err != nil {
+		return err
+	}
+
+	// Create a zip file header
+	header, err := zip.FileInfoHeader(info) // Takes the metadata from the file and makes a ZIP description from it
+	if err != nil {
+		return err
+	}
+
+	// Use the custom zip path (with participant name, etc.)
+	header.Name = zipPath       // zipPath is just the name the file should have inside the Zip file
+	header.Method = zip.Deflate // Compression
+
+	// Create writer for this file in the zip
+	// Basically tells the zip that I'm adding a new file with this metadata that we set above into the zip
+	// Establishes like the ghost file in the Zip that is going to take the copied compressed bytes below in the io.Copy()
+	writer, err := zipWriter.CreateHeader(header)
+	if err != nil {
+		return err
+	}
+
+	// Copy file content to zip
+	// Go handles the transferring and compressing of the file into the compressed writer ghost zip file and fills it up
+
+	/*
+		Just an interesting side note:
+		io.Copy takes an io.writer as its first parameter right? In doing so, that first parameter ("writer" in my case) fulfills the Writer interface and
+		implements a Write method. This is how Copy knows to compress the bytes from "file" into "writer". The "writer" variable has its Write method have
+		some compression logic, and io.Copy utilizes this. Pretty neat [and not as magical as I thought with the big into small surface level observation]
+	*/
+	_, err = io.Copy(writer, file)
+	return err
 }
 
 func initRDB() *redis.Client {
