@@ -552,7 +552,7 @@ func (s *Server) handleJoinRound(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 	})
 
-	// Return success response
+	// Return success response; parts like this are for the frontend
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success":       true,
@@ -565,11 +565,83 @@ func (s *Server) handleJoinRound(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleUpdateState(w http.ResponseWriter, r *http.Request) {
-	// Todo: Need to fully implement still
-	w.Header().Set("Content-Type", "application/json")
-	if _, err := w.Write([]byte(`{"status":"not implemented"}`)); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	vars := mux.Vars(r)
+	code := vars["code"]
+
+	// Parsing body to determine state
+	var req struct {
+		State RoundState `json:"state"`
 	}
+	// Where we get the POST request to change state
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	// Validate the state transition
+	if req.State != StateWaiting && req.State != StateActive && req.State != StateClosed {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "Invalid state",
+		})
+		return
+	}
+
+	// Get session to check if user is host
+	session := s.getSession(r)
+	if session == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	roundData, err := s.db.Get(ctx, roundKey(code)).Result()
+	if err != redis.Nil {
+		http.Error(w, "Round not found", http.StatusNotFound)
+		return
+	} else if err != nil {
+		http.Error(w, "Failed to get round", http.StatusInternalServerError)
+		return
+	}
+
+	var round Round
+	if err := json.Unmarshal([]byte(roundData), &round); err != nil {
+		http.Error(w, "Failed to parse round data", http.StatusInternalServerError)
+		return
+	}
+
+	// Check if user is the host
+	if session.ParticipantID != round.HostID {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "Only the host can change the round state",
+		})
+		return
+	}
+
+	// Updating the state
+	oldState := round.State
+	round.State = req.State
+
+	// Saving new updated round back to Redis
+	updatedRoundData, _ := json.Marshal(round)
+	if err := s.db.Set(ctx, roundKey(code), updatedRoundData, 24*time.Hour).Err(); err != nil {
+		http.Error(w, "Failed to update round", http.StatusInternalServerError)
+		return
+	}
+
+	// Printing state change to log
+	log.Printf("Round %s state changed from %s to %s by host %s", code, oldState, req.State, session.ParticipantID)
+
+	// Returning success response
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":  true,
+		"oldState": oldState,
+		"newState": req.State,
+		"message":  fmt.Sprintf("Round state updated to %s", req.State),
+	})
 }
 
 func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
@@ -581,11 +653,22 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleRoundInfo(w http.ResponseWriter, r *http.Request) {
-	// Todo: Need to fully implement still
-	w.Header().Set("Content-Type", "application/json")
-	if _, err := w.Write([]byte(`{"status":"not implemented"}`)); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	vars := mux.Vars(r)
+	code := vars["code"]
+
+	// Getting round from Redis
+	roundData, err := s.db.Get(ctx, roundKey(code)).Result()
+	if err != nil {
+		http.Error(w, "Round not found", http.StatusNotFound)
+		return
 	}
+
+	var round Round
+	json.Unmarshal([]byte(roundData), &round)
+
+	// Returning as JSON
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(round)
 }
 
 func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
