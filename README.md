@@ -1,20 +1,48 @@
-> # Partitionly
+<div align="center">
+    <img src="partitionly-logo-transparent.svg" alt="Partitionly" width="500">
+</div>
 
-***A fun music partitioning, collaborating, and distribution tool for producers***
+
+<div align="center">
+    <em>A fun music partitioning, collaborating, and distribution tool for producers</em>
+</div>
 
 ## Description
-This is a tiny web app for “beat battles” and remix exchanges where one person hosts a private lobby (join by short code) and friends hop in, upload one audio file, and at the end the host grabs everything as a ZIP. The core “Sample” mode lets the host share a sample everyone can download, make a remix, then re-upload. We’ll also support collaboration modes: “Collab” (everyone uploads a track that gets randomly swapped), “Cyclic” (swap in a circle so odd group sizes work), “Pair” (random pairs remix each other), and “Telephone” (people take turns iterating on a track in order). The host can force or wait for all swaps to finish, and can choose whether only the host or everyone can download the final ZIP. It’s deliberately simple—one small site with basic pages to join, upload, see the queue, and export—so it’s easy to demo on stream or add nice-to-have features later (like a basic in-browser playlist).
 
-### Modes
-**Sample Mode:**
-<br>
-This mode has everyone in a lobby to download and remix a sample that the host uploads.
+A tiny web app for beat battles and remix exchanges. One person hosts a private lobby (join by short code), friends hop in, upload audio files, and at the end the host downloads everything as a ZIP.
 
-**Collab Mode:**
-<br>
-This mode has everyone to pair up with someone else (or cyclically for odd groups) to remix each other's music.
+### How It Works
 
-**Telephone Mode:**
-<br>
-This mode has everyone become ordered followed by the first person uploading a song, and then having the next person remix
-the previous person's song similar to the "telephone" game.
+1. **Host creates a round** - Pick a name, choose Sample Mode, get a 6-character code
+2. **Share the code** - Friends join using the code
+3. **Host uploads a sample** - Everyone can download it
+4. **Participants upload remixes** - Host sees who has submitted
+5. **Host closes the round** - Downloads all submissions as a ZIP
+
+## Modes
+
+**Sample Mode:**  
+Everyone in the lobby downloads and remixes the same sample that the host uploads.
+
+**Telephone Mode:**  
+🚧 Coming soon...
+
+## Tech Stack
+
+- **Backend:** Go, Gorilla Mux, Redis
+- **Frontend:** Vanilla HTML/CSS/JavaScript
+- **Storage:** Redis (24-hour TTL), local filesystem for audio files
+
+## Running Locally
+```bash
+# 1a. Start Redis (make sure you have redis installed [can install with `brew install redis`])
+brew services start redis
+
+# 1b. Or you can run in docker as well with this
+docker run -d -p 6379:6379 redis
+
+# 2. Run the server
+go run .
+
+# 3. Visit http://localhost:8080
+```

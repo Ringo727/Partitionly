@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 120">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Montserrat+Alternates:wght@700&amp;display=swap');
+    </style>
+    <!-- Neon gradient matching the CSS -->
+    <linearGradient id="neonGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#7c3aed"/>
+      <stop offset="33%" style="stop-color:#2dd4bf"/>
+      <stop offset="66%" style="stop-color:#7c3aed"/>
+      <stop offset="100%" style="stop-color:#2dd4bf"/>
+    </linearGradient>
+    
+    <!-- Glow filter for neon effect -->
+    <filter id="neonGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <!-- Purple glow layer -->
+      <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur1"/>
+      <feFlood flood-color="#7c3aed" flood-opacity="0.6" result="purple"/>
+      <feComposite in="purple" in2="blur1" operator="in" result="purpleGlow"/>
+      
+      <!-- Teal glow layer -->
+      <feGaussianBlur in="SourceGraphic" stdDeviation="12" result="blur2"/>
+      <feFlood flood-color="#2dd4bf" flood-opacity="0.4" result="teal"/>
+      <feComposite in="teal" in2="blur2" operator="in" result="tealGlow"/>
+      
+      <!-- Combine glows -->
+      <feMerge>
+        <feMergeNode in="tealGlow"/>
+        <feMergeNode in="purpleGlow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    
+    <!-- Backing plate gradient glow -->
+    <filter id="plateGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="15" result="blur"/>
+      <feFlood flood-color="#7c3aed" flood-opacity="0.3"/>
+      <feComposite in2="blur" operator="in" result="glow1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur2"/>
+      <feFlood flood-color="#2dd4bf" flood-opacity="0.3"/>
+      <feComposite in2="blur2" operator="in" result="glow2"/>
+      <feMerge>
+        <feMergeNode in="glow1"/>
+        <feMergeNode in="glow2"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Backing plate glow effect -->
+  <rect x="30" y="25" width="440" height="70" rx="35" ry="35" fill="url(#neonGradient)" filter="url(#plateGlow)" opacity="0.6"/>
+  
+  <!-- Dark backing plate -->
+  <rect x="35" y="30" width="430" height="60" rx="30" ry="30" fill="#181818" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+  
+  <!-- Main text with neon glow -->
+  <text x="250" y="75" 
+        font-family="'Montserrat Alternates', sans-serif" 
+        font-size="48" 
+        font-weight="700" 
+        text-anchor="middle" 
+        fill="url(#neonGradient)" 
+        filter="url(#neonGlow)">
+    Partitionly
+  </text>
+</svg>
