@@ -347,9 +347,13 @@ func (s *Server) handleRoundInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var round Round
-	json.Unmarshal([]byte(roundData), &round)
+	if err := json.Unmarshal([]byte(roundData), &round); err != nil {
+		log.Printf("Failed to unmarshal roundData in handleUpdateState; err: %v", err)
+	}
 
 	// Returning as JSON
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(round)
+	if err := json.NewEncoder(w).Encode(round); err != nil {
+		log.Printf("Failed to encode json for handleUpdateState; err: %v", err)
+	}
 }
