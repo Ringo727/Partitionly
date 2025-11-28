@@ -283,7 +283,7 @@ func (s *Server) handleUpdateState(w http.ResponseWriter, r *http.Request) {
 	}
 
 	roundData, err := s.db.Get(ctx, roundKey(code)).Result()
-	if err != redis.Nil {
+	if err == redis.Nil {
 		http.Error(w, "Round not found", http.StatusNotFound)
 		return
 	} else if err != nil {
