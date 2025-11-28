@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Partitionly - Beat Battles</title>
+    <link rel="stylesheet" href="../static/css/main.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Montserrat+Alternates:wght@700&family=Audiowide&family=Bebas+Neue&display=swap"
+        rel="stylesheet">
+
+
+</head>
+
+<body>
+    <div class="container">
+        <!-- <header class="header">
+            <h1 class="logo">Partitionly</h1>
+            <p class="tagline">Collaborative beat battles, simplified</p>
+        </header> -->
+        <header class="header">
+            <div class="logo-sign">
+                <div class="logo-sign-plate">
+                    <h1 class="logo">Partitionly</h1>
+                </div>
+            </div>
+            <p class="tagline">Collaborative beat battles, simplified</p>
+        </header>
+
+
+        <main class="main-content">
+            <!-- Join Section -->
+            <section class="card">
+                <h2>Join a Round</h2>
+                <form id="join-form" class="form">
+                    <div class="form-group">
+                        <label for="join-code">Round Code</label>
+                        <input type="text" id="join-code" name="code" placeholder="Enter 6-letter code" maxlength="6"
+                            autocomplete="off" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="join-name">Your Name</label>
+                        <input type="text" id="join-name" name="displayName" placeholder="How others will see you"
+                            maxlength="30" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Join Round</button>
+                    <p id="join-error" class="error-message"></p>
+                </form>
+            </section>
+
+            <div class="divider">
+                <span>or</span>
+            </div>
+
+            <!-- Create Section -->
+            <section class="card">
+                <h2>Host a Round</h2>
+                <form id="create-form" class="form">
+                    <div class="form-group">
+                        <label for="round-name">Round Name</label>
+                        <input type="text" id="round-name" name="name" placeholder="e.g., Friday Night Flip"
+                            maxlength="50" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="host-name">Your Name</label>
+                        <input type="text" id="host-name" name="hostName" placeholder="Your display name" maxlength="30"
+                            required>
+                    </div>
+                    <div class="form-group">
+                        <label>Battle Mode</label>
+                        <div class="radio-group">
+                            <label class="radio-option">
+                                <input type="radio" name="mode" value="sample" checked>
+                                <span class="radio-label">
+                                    <strong>Sample Mode</strong>
+                                    <small>Everyone flips the same sample</small>
+                                </span>
+                            </label>
+                            <label class="radio-option">
+                                <input type="radio" name="mode" value="telephone">
+                                <span class="radio-label">
+                                    <strong>Telephone Mode</strong>
+                                    <small>Each person remixes the previous submission</small>
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-option">
+                            <input type="checkbox" name="allowGuestDownload" id="allow-guest">
+                            <span>Allow guests to download files</span>
+                        </label>
+                    </div>
+                    <button type="submit" class="btn btn-secondary">Create Round</button>
+                    <p id="create-error" class="error-message"></p>
+                </form>
+            </section>
+        </main>
+
+        <footer class="footer">
+            <p>Upload beats. Share samples. Make music together.</p>
+        </footer>
+    </div>
+
+    <script src="/static/js/index.js"></script>
+</body>
+
+</html>
