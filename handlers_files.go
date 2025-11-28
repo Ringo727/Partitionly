@@ -547,7 +547,8 @@ func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			fileToServe = round.SampleFileID
-			originalName = "sample.mp3" // Generic name for sample
+			ext := filepath.Ext(round.SampleFileID)
+			originalName = "sample" + ext // Preserve the extension
 		} else {
 			// Downloading someone's remix; verify it exists
 			// Look for the submission whose stored filename matches the requested one
@@ -626,8 +627,24 @@ func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Detect content type based on file extension
+	ext := strings.ToLower(filepath.Ext(fileToServe))
+	contentTypes := map[string]string{
+		".mp3":  "audio/mpeg",
+		".wav":  "audio/wav",
+		".m4a":  "audio/mp4",
+		".flac": "audio/flac",
+		".ogg":  "audio/ogg",
+		".aac":  "audio/aac",
+	}
+
+	contentType := contentTypes[ext]
+	if contentType == "" {
+		contentType = "application/octet-stream" // Fallback for unknown types
+	}
+
 	// Set headers for file download
-	w.Header().Set("Content-Type", "audio/mpeg") // Just a generic audio type
+	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", originalName))
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))
 
