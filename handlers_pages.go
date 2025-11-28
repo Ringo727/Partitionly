@@ -24,14 +24,6 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) handleHostDashboard(w http.ResponseWriter, r *http.Request) {
-	// Todo: check session and verify host
-	if err := s.templates.ExecuteTemplate(w, "host.html", nil); err != nil {
-		http.Error(w, "Failed to render template", http.StatusInternalServerError)
-		log.Printf("Template error: %v", err)
-	}
-}
-
 func (s *Server) handleRoundView(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r) // mux is the router library; Vars only has path variables in the {} from above.
 	// the code carried in the variables of mux.Vars is limited to just this route (whatever code was called with the GET request)

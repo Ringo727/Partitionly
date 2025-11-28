@@ -155,7 +155,6 @@ func (s *Server) setupRoutes() {
 
 	// Page routes registration
 	s.router.HandleFunc("/", s.handleIndex).Methods("GET")
-	s.router.HandleFunc("/host", s.handleHostDashboard).Methods("GET")
 	// Want to note that {code} is like a reverse template where the URL fulfills that variable, but in the handler
 	// function we will extract that {code} variable with mux.Vars(r)
 	s.router.HandleFunc("/round/{code}", s.handleRoundView).Methods("GET")
