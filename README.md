@@ -46,3 +46,15 @@ go run .
 
 # 3. Visit http://localhost:8080
 ```
+
+## Screenshots
+
+<div align="center">
+    <img src="docs/landing_page.png" alt="Home Page" width="400">
+    <img src="docs/round_creation.png" alt="Round Page" width="400">
+</div>
+
+<div align="center">
+    <img src="docs/lobby_view.png" alt="Round Page" width="400">
+    <img src="docs/participant_list.png" alt="Round Page" width="400">
+</div>
