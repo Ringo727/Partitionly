@@ -1,5 +1,5 @@
 <div align="center">
-    <img src="partitionly-logo-transparent.svg" alt="Partitionly" width="500">
+    <img src="docs/partitionly-logo-transparent.svg" alt="Partitionly" width="500">
 </div>
 
 
