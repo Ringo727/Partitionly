@@ -264,6 +264,29 @@ input::placeholder {
     gap: 0.5rem;
 }
 
+/* Disabled radio option */
+.radio-option.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    position: relative;
+}
+
+.radio-option.disabled:hover {
+    background: var(--bg);
+    border-color: var(--border);
+}
+
+.radio-option.disabled::after {
+    content: "✕";
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1.25rem;
+    color: var(--error);
+    font-weight: bold;
+}
+
 .radio-option {
     display: flex;
     align-items: flex-start;
