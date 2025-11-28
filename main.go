@@ -170,6 +170,7 @@ func (s *Server) setupRoutes() {
 	api.HandleFunc("/round/{code}/download/{filename}", s.handleDownload).Methods("GET")
 	api.HandleFunc("/round/{code}/export", s.handleExport).Methods("GET")
 	api.HandleFunc("/round/{code}/upload-sample", s.handleUploadSample).Methods("POST")
+	api.HandleFunc("/round/{code}/leave", s.handleLeaveRound).Methods("POST")
 }
 
 // Redis key helper functions

@@ -47,6 +47,31 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // === Back to Home (also leaves round) ===
+    const backLink = document.querySelector('.back-link');
+    if (backLink && isParticipant) {
+        backLink.addEventListener('click', async (e) => {
+            e.preventDefault();
+
+            if (!confirm('Leave this round and return home?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/round/${code}/leave`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                // Redirect home regardless of response
+                window.location.href = '/';
+            } catch (err) {
+                // Still redirect home even if the leave request fails
+                window.location.href = '/';
+            }
+        });
+    }
+
     // === File Upload Helper ===
     function setupUploadArea(areaId, inputId, progressId, statusId, endpoint, fieldName, onSuccess) {
         const area = document.getElementById(areaId);
@@ -255,6 +280,44 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (closeBtn) {
         closeBtn.addEventListener('click', () => updateRoundState('closed'));
+    }
+
+    // === Leave Round ===
+    const leaveBtn = document.getElementById('leave-round-btn');
+    if (leaveBtn) {
+        leaveBtn.addEventListener('click', async () => {
+            if (!confirm('Are you sure you want to leave this round?')) {
+                return;
+            }
+
+            leaveBtn.disabled = true;
+            leaveBtn.textContent = 'Leaving...';
+
+            try {
+                const response = await fetch(`/api/round/${code}/leave`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast('You have left the round');
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 1000);
+                } else {
+                    showToast(data.error || 'Failed to leave round', 'error');
+                    leaveBtn.disabled = false;
+                    leaveBtn.textContent = 'Leave Round';
+                }
+            } catch (err) {
+                console.error('Leave error:', err);
+                showToast('Failed to leave round', 'error');
+                leaveBtn.disabled = false;
+                leaveBtn.textContent = 'Leave Round';
+            }
+        });
     }
 
     async function updateRoundState(newState) {

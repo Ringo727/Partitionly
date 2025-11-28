@@ -357,3 +357,114 @@ func (s *Server) handleRoundInfo(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Failed to encode json for handleUpdateState; err: %v", err)
 	}
 }
+
+func (s *Server) handleLeaveRound(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	code := vars["code"]
+
+	session := s.getSession(r)
+	if session == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	roundData, err := s.db.Get(ctx, roundKey(code)).Result()
+	if err == redis.Nil {
+		http.Error(w, "Round not found", http.StatusNotFound)
+		return
+	} else if err != nil {
+		http.Error(w, "Failed to get round", http.StatusInternalServerError)
+		return
+	}
+
+	var round Round
+	if err := json.Unmarshal([]byte(roundData), &round); err != nil {
+		http.Error(w, "Failed to parse round data", http.StatusInternalServerError)
+		return
+	}
+
+	// Check if user is a participant
+	participant, exists := round.Participants[session.ParticipantID]
+	if !exists {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "You are not a participant in this round",
+		})
+		return
+	}
+
+	leavingParticipantName := participant.DisplayName
+	wasHost := participant.IsHost
+
+	// Remove participant from the round
+	delete(round.Participants, session.ParticipantID)
+
+	// Also remove their submission if they had one
+	if round.Submissions != nil {
+		delete(round.Submissions, session.ParticipantID)
+	}
+
+	// If the leaving participant was the host, assign a new host
+	var newHostName string
+	if wasHost && len(round.Participants) > 0 {
+		// Find the participant who joined earliest to make them host
+		var earliestJoin time.Time
+		var newHostID string
+
+		for id, p := range round.Participants {
+			if newHostID == "" || p.JoinedAt.Before(earliestJoin) {
+				earliestJoin = p.JoinedAt
+				newHostID = id
+			}
+		}
+
+		if newHostID != "" {
+			round.Participants[newHostID].IsHost = true
+			round.HostID = newHostID
+			newHostName = round.Participants[newHostID].DisplayName
+			log.Printf("Host transferred from %s to %s in round %s",
+				leavingParticipantName, newHostName, code)
+		}
+	}
+
+	// If no participants left, we could delete the round, but let's just leave it
+	// It will expire naturally via Redis TTL
+
+	// Save updated round to Redis
+	updatedRoundData, _ := json.Marshal(round)
+	if err := s.db.Set(ctx, roundKey(code), updatedRoundData, 24*time.Hour).Err(); err != nil {
+		http.Error(w, "Failed to update round", http.StatusInternalServerError)
+		return
+	}
+
+	// Delete the user's session for this round
+	s.db.Del(ctx, sessionKey(session.Token))
+
+	// Clear the session cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1, // Delete cookie
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	log.Printf("Participant %s left round %s", leavingParticipantName, code)
+
+	// Return success response
+	w.Header().Set("Content-Type", "application/json")
+	response := map[string]interface{}{
+		"success":        true,
+		"message":        "You have left the round",
+		"wasHost":        wasHost,
+		"remainingCount": len(round.Participants),
+	}
+	if newHostName != "" {
+		response["newHost"] = newHostName
+	}
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Failed to encode reponse for handleLeaveRound; err: %v", err)
+	}
+}
