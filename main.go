@@ -183,10 +183,6 @@ func sessionKey(token string) string {
 	return fmt.Sprintf("sesssion:%s", token)
 }
 
-func fileKey(roundID, filename string) string {
-	return fmt.Sprintf("file:%s:%s", roundID, filename)
-}
-
 /*
 	Some notes:
 	http.ResponseWriter will be the pipe back to the user's browser where that variable is used to write the response.

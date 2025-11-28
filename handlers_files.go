@@ -110,7 +110,11 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.Printf("Failed to close file in handleUpload; error: %v", err)
+		}
+	}()
 
 	// Validating file extension for audio files
 	ext := strings.ToLower(filepath.Ext(handler.Filename))
@@ -148,7 +152,11 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to save file", http.StatusInternalServerError)
 		return
 	}
-	defer dst.Close()
+	defer func() {
+		if err := dst.Close(); err != nil {
+			log.Printf("Failed to close destination file in handleUpload; error: %v", err)
+		}
+	}()
 
 	// Copy the uploaded file to destination
 	writtenBytes, err := io.Copy(dst, file)
@@ -266,17 +274,20 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 		"message":       "", // initialize empty
 	}
 
-	// confirm
-	if round.Mode == ModeSample {
+	// Confirm success
+	switch round.Mode {
+	case ModeSample:
 		if isReplacement {
 			responseData["message"] = "Your remix has been updated successfully!"
 		} else {
 			responseData["message"] = "Your remix has been uploaded successfully!"
 		}
-	} else if round.Mode == ModeTelephone {
+
+	case ModeTelephone:
 		if submission.AssignedToID != "" {
 			nextParticipant := round.Participants[submission.AssignedToID]
 			responseData["assignedTo"] = nextParticipant.DisplayName
+
 			if isReplacement {
 				responseData["message"] = fmt.Sprintf("Your updated upload will be passed to %s", nextParticipant.DisplayName)
 			} else {
@@ -378,7 +389,11 @@ func (s *Server) handleUploadSample(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.Printf("Failed to close file in handleUploadSample; error: %v", err)
+		}
+	}()
 
 	// Validate audio file extension
 	ext := strings.ToLower(filepath.Ext(handler.Filename))
@@ -416,7 +431,11 @@ func (s *Server) handleUploadSample(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to save file", http.StatusInternalServerError)
 		return
 	}
-	defer dst.Close()
+	defer func() {
+		if err := dst.Close(); err != nil {
+			log.Printf("Failed to close destination file; error: %v", err)
+		}
+	}()
 
 	// Copy uploaded file to destination
 	writtenBytes, err := io.Copy(dst, file)
@@ -433,7 +452,9 @@ func (s *Server) handleUploadSample(w http.ResponseWriter, r *http.Request) {
 	updatedRoundData, _ := json.Marshal(round)
 	if err := s.db.Set(ctx, roundKey(code), updatedRoundData, 24*time.Hour).Err(); err != nil {
 		// Clean up file if Redis save failed
-		os.Remove(fullPath)
+		if err := os.Remove(fullPath); err != nil {
+			log.Printf("Failed to remove file path and or file; error: %v", err)
+		}
 		http.Error(w, "Failed to update round", http.StatusInternalServerError)
 		return
 	}
@@ -593,7 +614,11 @@ func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "File not found on server", http.StatusNotFound)
 		return
 	}
-	defer file.Close() // for defer, files close after the function returns/finishes
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.Printf("Failed to close file in handleDownload; error: %v", err)
+		}
+	}()
 
 	fileInfo, err := file.Stat() // Getting file info for size
 	if err != nil {
@@ -730,7 +755,11 @@ func addFileToZip(zipWriter *zip.Writer, filePath string, zipPath string) error 
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.Printf("Failed to close in addFileToZip; error: %v", err)
+		}
+	}()
 
 	// Get file info
 	info, err := file.Stat()
