@@ -24,8 +24,8 @@ A tiny web app for beat battles and remix exchanges. One person hosts a private 
 **Sample Mode:**  
 Everyone in the lobby downloads and remixes the same sample that the host uploads.
 
-**Telephone Mode:**  
-🚧 Coming soon...
+**Other Modes**  
+*Coming soon...*
 
 ## Tech Stack
 
