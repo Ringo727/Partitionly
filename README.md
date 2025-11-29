@@ -35,10 +35,12 @@ Everyone in the lobby downloads and remixes the same sample that the host upload
 
 ## Running Locally
 ```bash
-# 1a. Start Redis (make sure you have redis installed [can install with `brew install redis`])
+# 1. Start Redis (pick one option)
+
+# Option A: Using Homebrew (install with `brew install redis` if needed)
 brew services start redis
 
-# 1b. Or you can run in docker as well with this
+# Option B: Using Docker
 docker run -d -p 6379:6379 redis
 
 # 2. Run the server
