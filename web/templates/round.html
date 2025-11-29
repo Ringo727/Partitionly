@@ -153,6 +153,12 @@
                     In telephone mode, you'll remix the previous person's submission.
                 </p>
                 {{end}}
+                {{if and (eq .Round.State "closed") .Round.AllowGuestDownload}}
+                <div class="export-section mt-2">
+                    <p class="section-title">Round Results</p>
+                    <a href="/api/round/{{.Code}}/export" class="btn btn-secondary"><i data-lucide="download" class="icon-inline"></i> Download All Files (ZIP)</a>
+                </div>
+                {{end}}
             </section>
 
             <!-- Upload Section (for participants when round is active) -->

@@ -688,9 +688,13 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if user is the host (only host can export all)
-	if session.ParticipantID != round.HostID {
-		http.Error(w, "Only the host can export all files", http.StatusForbidden)
+	// Check if user can export
+	// Host can always export, participants can export if AllowGuestDownload is enabled
+	isHost := session.ParticipantID == round.HostID
+	_, isParticipant := round.Participants[session.ParticipantID]
+
+	if !isHost && (!round.AllowGuestDownload || !isParticipant) {
+		http.Error(w, "You don't have permission to export files", http.StatusForbidden)
 		return
 	}
 
