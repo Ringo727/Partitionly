@@ -378,15 +378,19 @@ document.addEventListener('DOMContentLoaded', () => {
             // Update participant list
             const list = document.getElementById('participants-list');
             if (list) {
-                list.innerHTML = Object.values(round.participants).map(p => `
-                    <li class="participant-item" data-id="${p.id}">
+                list.innerHTML = Object.values(round.participants).map(p => {
+                    const hasSubmitted = round.submissions && round.submissions[p.id];
+                    return `
+                    <li class="participant-item ${hasSubmitted ? 'submitted' : 'not-submitted'}" data-id="${p.id}">
                         <div class="participant-info">
                             <span class="participant-name">${escapeHtml(p.displayName)}</span>
                             ${p.isHost ? '<span class="badge badge-host">Host</span>' : ''}
                         </div>
-                        ${round.submissions && round.submissions[p.id] ? '<span class="participant-status"><i data-lucide="check" class="icon-inline icon-success"></i> Submitted</span>' : ''}
+                        ${hasSubmitted
+                            ? '<span class="participant-status"><i data-lucide="check" class="icon-inline"></i></span>'
+                            : '<span class="participant-status pending"><i data-lucide="clock" class="icon-inline"></i></span>'}
                     </li>
-                `).join('');
+                `}).join('');
                 lucide.createIcons();
             }
 

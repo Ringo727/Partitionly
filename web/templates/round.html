@@ -112,17 +112,23 @@
                 </div>
                 <ul class="participants-list" id="participants-list">
                     {{range $id, $p := .Round.Participants}}
-                    <li class="participant-item" data-id="{{$p.ID}}">
+                    <li class="participant-item {{if index $.Round.Submissions $p.ID}}submitted{{else}}not-submitted{{end}}" data-id="{{$p.ID}}">
                         <div class="participant-info">
                             <span class="participant-name">{{$p.DisplayName}}</span>
                             {{if $p.IsHost}}<span class="badge badge-host">Host</span>{{end}}
                         </div>
                         {{if index $.Round.Submissions $p.ID}}
-                        <span class="participant-status"><i data-lucide="check" class="icon-inline icon-success"></i> Submitted</span>
+                        <span class="participant-status"><i data-lucide="check" class="icon-inline"></i></span>
+                        {{else}}
+                        <span class="participant-status pending"><i data-lucide="clock" class="icon-inline"></i></span>
                         {{end}}
                     </li>
                     {{end}}
                 </ul>
+                <div class="participants-legend">
+                    <span class="legend-item"><span class="legend-dot submitted"></span> Uploaded</span>
+                    <span class="legend-item"><span class="legend-dot not-submitted"></span> Pending</span>
+                </div>
             </section>
 
             {{if .Participant}}
