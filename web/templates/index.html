@@ -9,16 +9,11 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Montserrat+Alternates:wght@700&family=Audiowide&family=Bebas+Neue&display=swap"
         rel="stylesheet">
-
-
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 
 <body>
     <div class="container">
-        <!-- <header class="header">
-            <h1 class="logo">Partitionly</h1>
-            <p class="tagline">Collaborative beat battles, simplified</p>
-        </header> -->
         <header class="header">
             <div class="logo-sign">
                 <div class="logo-sign-plate">
@@ -27,7 +22,6 @@
             </div>
             <p class="tagline">Collaborative beat battles, simplified</p>
         </header>
-
 
         <main class="main-content">
             <!-- Join Section -->
@@ -73,14 +67,14 @@
                             <label class="radio-option">
                                 <input type="radio" name="mode" value="sample" checked>
                                 <span class="radio-label">
-                                    <strong>Sample Mode</strong>
+                                    <strong><i data-lucide="music" class="icon-inline"></i> Sample Mode</strong>
                                     <small>Everyone flips the same sample</small>
                                 </span>
                             </label>
                             <label class="radio-option disabled">
                                 <input type="radio" name="mode" value="telephone" disabled>
                                 <span class="radio-label">
-                                    <strong>Telephone Mode</strong>
+                                    <strong><i data-lucide="phone" class="icon-inline"></i> Telephone Mode</strong>
                                     <small>Coming soon</small>
                                 </span>
                             </label>
@@ -104,6 +98,7 @@
     </div>
 
     <script src="/static/js/index.js"></script>
+    <script>lucide.createIcons();</script>
 </body>
 
 </html>

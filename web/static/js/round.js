@@ -173,8 +173,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (response.success) {
                     showToast(response.message || 'Upload successful!');
                     if (statusEl) {
-                        statusEl.textContent = '✓ ' + (response.originalName || file.name);
+                        statusEl.innerHTML = '<i data-lucide="check" class="icon-inline icon-success"></i> ' + (response.originalName || file.name);
                         statusEl.className = 'upload-status success-message';
+                        lucide.createIcons();
                     }
                     if (onSuccess) onSuccess(response);
                 } else {
@@ -213,14 +214,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Update submission status
                 const statusDiv = document.getElementById('submission-status');
                 if (statusDiv) {
-                    statusDiv.innerHTML = `<span>✓ Submitted: ${response.originalName}</span>`;
+                    statusDiv.innerHTML = `<span><i data-lucide="check" class="icon-inline"></i> Submitted: ${response.originalName}</span>`;
+                    lucide.createIcons();
                 } else {
                     const uploadSection = document.getElementById('upload-section');
                     const newStatus = document.createElement('div');
                     newStatus.id = 'submission-status';
                     newStatus.className = 'file-status success';
-                    newStatus.innerHTML = `<span>✓ Submitted: ${response.originalName}</span>`;
+                    newStatus.innerHTML = `<span><i data-lucide="check" class="icon-inline"></i> Submitted: ${response.originalName}</span>`;
                     uploadSection.insertBefore(newStatus, uploadSection.querySelector('.upload-area'));
+                    lucide.createIcons();
                 }
                 // Update participant list
                 refreshParticipants();
@@ -250,10 +253,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     section.insertBefore(statusDiv, sampleArea);
                 }
                 statusDiv.innerHTML = `
-                    <span>✓ Sample uploaded</span>
+                    <span><i data-lucide="check" class="icon-inline"></i> Sample uploaded</span>
                     <button class="btn btn-sm btn-outline" id="replace-sample-btn">Replace</button>
                 `;
                 sampleArea.classList.add('hidden');
+                lucide.createIcons();
 
                 // Re-attach replace button listener
                 document.getElementById('replace-sample-btn').addEventListener('click', () => {
@@ -380,9 +384,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="participant-name">${escapeHtml(p.displayName)}</span>
                             ${p.isHost ? '<span class="badge badge-host">Host</span>' : ''}
                         </div>
-                        ${round.submissions && round.submissions[p.id] ? '<span class="participant-status">✓ Submitted</span>' : ''}
+                        ${round.submissions && round.submissions[p.id] ? '<span class="participant-status"><i data-lucide="check" class="icon-inline icon-success"></i> Submitted</span>' : ''}
                     </li>
                 `).join('');
+                lucide.createIcons();
             }
 
             // Update state badge if changed

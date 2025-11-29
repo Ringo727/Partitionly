@@ -9,12 +9,13 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Montserrat+Alternates:wght@700&family=Audiowide&family=Bebas+Neue&display=swap"
         rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 
 <body>
     <div class="container">
         <header class="header">
-            <a href="/" class="back-link">← Back to Home</a>
+            <a href="/" class="back-link"><i data-lucide="arrow-left" class="icon-inline"></i> Back to Home</a>
             <div class="logo-sign logo-sign-sm">
                 <div class="logo-sign-plate">
                     <h1 class="logo logo-sm">Partitionly</h1>
@@ -32,7 +33,7 @@
 
                 <div class="round-meta">
                     <span class="mode-label">
-                        {{if eq .Round.Mode "sample"}}🎵 Sample Mode{{else}}📞 Telephone Mode{{end}}
+                        {{if eq .Round.Mode "sample"}}<i data-lucide="music" class="icon-inline icon-primary"></i> Sample Mode{{else}}<i data-lucide="phone" class="icon-inline icon-primary"></i> Telephone Mode{{end}}
                     </span>
                 </div>
 
@@ -61,13 +62,13 @@
                     <p class="section-title">Sample File</p>
                     {{if .Round.SampleFileID}}
                     <div class="file-status success">
-                        <span>✓ Sample uploaded</span>
+                        <span><i data-lucide="check" class="icon-inline"></i> Sample uploaded</span>
                         <button class="btn btn-sm btn-outline" id="replace-sample-btn">Replace</button>
                     </div>
                     {{end}}
                     <div class="upload-area{{if .Round.SampleFileID}} hidden{{end}}" id="sample-upload-area">
                         <input type="file" id="sample-file-input" accept=".mp3,.wav,.m4a,.flac,.ogg,.aac">
-                        <div class="upload-icon">🎵</div>
+                        <div class="upload-icon"><i data-lucide="music" class="icon-lg icon-primary"></i></div>
                         <p class="upload-text">Drop sample file here or click to browse</p>
                         <p class="upload-hint">MP3, WAV, M4A, FLAC, OGG, AAC (max 32MB)</p>
                     </div>
@@ -97,7 +98,7 @@
                 {{if eq .Round.State "closed"}}
                 <div class="export-section mt-2">
                     <p class="section-title">Export</p>
-                    <a href="/api/round/{{.Code}}/export" class="btn btn-secondary">Download All Files (ZIP)</a>
+                    <a href="/api/round/{{.Code}}/export" class="btn btn-secondary"><i data-lucide="download" class="icon-inline"></i> Download All Files (ZIP)</a>
                 </div>
                 {{end}}
             </section>
@@ -117,7 +118,7 @@
                             {{if $p.IsHost}}<span class="badge badge-host">Host</span>{{end}}
                         </div>
                         {{if index $.Round.Submissions $p.ID}}
-                        <span class="participant-status">✓ Submitted</span>
+                        <span class="participant-status"><i data-lucide="check" class="icon-inline icon-success"></i> Submitted</span>
                         {{end}}
                     </li>
                     {{end}}
@@ -131,16 +132,16 @@
                 {{if eq .Round.Mode "sample"}}
                 {{if .Round.SampleFileID}}
                 <a href="/api/round/{{.Code}}/download/sample" class="download-link">
-                    <span>🎵 Download Sample</span>
-                    <span>↓</span>
+                    <span><i data-lucide="music" class="icon-inline icon-primary"></i> Download Sample</span>
+                    <span><i data-lucide="download" class="icon-inline icon-secondary"></i></span>
                 </a>
                 {{else}}
                 <p class="info-box">Waiting for host to upload sample...</p>
                 {{end}}
                 {{else}}
                 <a href="/api/round/{{.Code}}/download/assigned" class="download-link" id="assigned-download">
-                    <span>🎵 Download Your Assigned File</span>
-                    <span>↓</span>
+                    <span><i data-lucide="music" class="icon-inline icon-primary"></i> Download Your Assigned File</span>
+                    <span><i data-lucide="download" class="icon-inline icon-secondary"></i></span>
                 </a>
                 <p class="text-muted mt-1" style="font-size: 0.8125rem;">
                     In telephone mode, you'll remix the previous person's submission.
@@ -155,13 +156,13 @@
                 {{$mySubmission := index .Round.Submissions .Participant.ID}}
                 {{if $mySubmission}}
                 <div class="file-status success" id="submission-status">
-                    <span>✓ Submitted: {{$mySubmission.OriginalName}}</span>
+                    <span><i data-lucide="check" class="icon-inline"></i> Submitted: {{$mySubmission.OriginalName}}</span>
                 </div>
                 {{end}}
 
                 <div class="upload-area{{if ne .Round.State "active"}} disabled{{end}}" id="upload-area">
                     <input type="file" id="file-input" accept=".mp3,.wav,.m4a,.flac,.ogg,.aac" {{if ne .Round.State "active"}}disabled{{end}}>
-                    <div class="upload-icon">🎧</div>
+                    <div class="upload-icon"><i data-lucide="headphones" class="icon-lg icon-secondary"></i></div>
                     {{if eq .Round.State "waiting"}}
                     <p class="upload-text">Waiting for round to start...</p>
                     {{else if eq .Round.State "active"}}
@@ -200,6 +201,7 @@
     <div id="round-data" data-code="{{.Code}}" data-state="{{.Round.State}}" data-mode="{{.Round.Mode}}" data-has-sample="{{if .Round.SampleFileID}}true{{else}}false{{end}}" {{if .Participant}}data-is-participant="true" data-is-host="{{if .Participant.IsHost}}true{{else}}false{{end}}" data-participant-id="{{.Participant.ID}}"{{else}}data-is-participant="false" data-is-host="false" data-participant-id=""{{end}} style="display: none;">
     </div>
     <script src="/static/js/round.js"></script>
+    <script>lucide.createIcons();</script>
 </body>
 
 </html>
