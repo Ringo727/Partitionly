@@ -934,10 +934,6 @@ input::placeholder {
     justify-content: center;
 }
 
-.state-controls .btn {
-    max-width: 200px;
-}
-
 /* Export section */
 .export-section .btn {
     display: flex;
